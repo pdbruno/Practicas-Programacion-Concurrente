@@ -1,0 +1,498 @@
+1. Dados los siguientes threads
+P1 :
+Print(A);
+Print(B);
+Print(C);
+P2 :
+Print(E);
+Print(F);
+Print(G);
+utilizar sem´aforos para garantizar que:
+a) A se muestra antes que F
+b) F se muestra antes que C
+
+waitForA = sem(0)
+waitForF = sem(0)
+
+P1 :
+Print(A);
+waitForA.signal()
+Print(B);
+waitForF.wait()
+Print(C);
+
+P2 :
+Print(E);
+waitForA.wait()
+Print(F);
+waitForF.signal()
+Print(G);
+
+2. Dados
+P1 :
+Print(C);
+Print(E);
+P2 :
+Print(A);
+Print(R);
+Print(O);
+utilizar sem´aforos para garantizar que las ´unicas salidas posibles sean ACERO y ACREO
+
+waitForO = sem(1)
+waitForA = sem(0)
+waitForC = sem(0)
+waitForROrE = sem(0)
+
+P1 :
+waitForA.wait()
+Print(C);
+waitForC.signal()
+Print(E);
+waitForROrE.signal()
+
+
+P2 :
+waitForO.wait()
+Print(A);
+waitForA.signal()
+waitForC.wait()
+Print(R);
+waitForROrE.wait()
+Print(O);
+waitForO.signal()
+
+3. Considerar los siguientes tres procesos:
+P1 :
+Print(R)
+Print(OK)
+P2 :
+Print(I)
+Print(OK)
+P3 :
+Print(O)
+Print(OK)
+Utilizar sem´aforos para garantizar que el ´unico resultado impreso ser´a R I O OK OK OK (asumimos que Print es at´omico)
+
+waitForR = sem(0)
+waitForI = sem(0)
+waitForO = sem(0)
+
+P1 :
+Print(R)
+waitForR.signal()
+waitForO.wait()
+Print(OK)
+P2 :
+waitForR.wait()
+Print(I)
+waitForI.signal()
+waitForO.wait()
+Print(OK)
+P3 :
+waitForI.wait()
+Print(O)
+waitForO.signal()
+waitForO.signal()
+Print(OK)
+
+
+4. Dados
+P1 :
+repeat
+    Print(A);
+    Print(B);
+    Print(C);
+    Print(D);
+while true;
+
+P2 :
+repeat
+    Print(E);
+    Print(F);
+    Print(G);
+while true;
+
+P3 :
+repeat
+    Print(H);
+    Print(I);
+while true;
+Agregar sem´aforos para garantizar que:
+a) cantidad de F ≤ cantidad de A
+b) cantidad de H ≤ cantidad de E
+c) cantidad de C ≤ cantidad de G
+
+waitForA = sem(0)
+waitForE = sem(0)
+waitForG = sem(0)
+
+P1 :
+repeat
+    Print(A);
+    waitForA.signal()
+    Print(B);
+    waitForG.wait()
+    Print(C);
+    Print(D);
+while true;
+
+P2 :
+repeat
+    Print(E);
+    waitForE.signal()
+    waitForA.wait()
+    Print(F);
+    Print(G);
+    waitForG.signal()
+while true;
+
+P3 :
+repeat
+    waitForE.wait()
+    Print(H);
+    Print(I);
+while true;
+
+5. Considere los siguientes dos procesos
+T_1 = while true do print(A)
+T_2 = while true do print(B)
+a) Utilizar sem´aforos para garantizar que en todo momento la cantidad de A y B difiera al m´aximo
+en 1.
+b) Modificar la soluci´on para que la ´unica salida posible sea ABABABABAB....
+
+printA = sem(1)
+printB = sem(0)
+
+T1:
+while(true)
+    printA.wait()
+    print(A)
+    printB.signal()
+
+T2:
+while(true)
+    printB.wait()
+    print(B)    
+    printA.signal()
+
+
+
+6. Los siguientes procesos cooperan para calcular el valor N2 correspondiente a la suma de los primero
+N n´umeros impares. Los procesos comparten las variables N y N2 inicializadas de la siguiente manera:
+N = 50 y N2 = 0.
+1
+Programaci´on Concurrente 1er bimestre 2023
+P1 :
+while (N > 0) do
+    N = N - 1
+end while
+mostrar (N2)
+
+P2 :
+while (true) do
+    N2 = N2 + 2 * N + 1
+end while
+a) Dar una soluci´on utilizando sem´aforos que garantice el c´alculo correcto de N2.
+b) Dar una implementaci´on en Java de la soluci´on.
+c) C´omo cambia la soluci´on si N2 se calcula como N2 = N2 + 2 * N - 1.
+
+a)
+updateN = sem(0)
+updateN2 = sem(1)
+
+P1 :
+while (N > 0) do
+    updateN.wait()
+    N = N - 1
+    updateN2.signal()
+end while
+mostrar (N2)
+
+P2 :
+while (true) do
+    updateN2.wait()
+    N2 = N2 + 2 * N + 1
+    updateN.signal()
+end while
+
+b) ayyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy q paja
+c) cambiando solamente lo que involucra semaforos, seguramente la solucion resida en cambiar cual semaforo empieza en 0 y cual en 1. 
+la verdad no me detuve a pensar en eso ni si la solucion que propuse calcula los primeros 51, 50 o 49 numeros impartes.
+
+
+7. Modelar con sem´aforos un transbordador entre dos costas. El transbordador tiene capacidad para N
+personas y funciona de la siguiente manera. Espera en una costa hasta llenarse y autom´aticamente
+cambia de costa. Cuando llega a una costa se bajan todas las personas y suben las que est´an esperando.
+Cada persona debe ser modelada como un thread independiente del transbordador. Implementar su
+soluci´on en Java.
+
+costa = izq
+semPersonasEsperandoASubirCostaIzq = sem(0)
+semPersonasSubiendoCostaIzq = sem(0)
+semPersonasEsperandoASubirCostaDer = sem(0)
+semPersonasSubiendoCostaDer = sem(0)
+
+semDeViajar = sem(0)
+semDeBajar = sem(0)
+
+persona(miCosta) {
+    semaforoParaSubir = miCosta == izq ? semPersonasEsperandoASubirCostaIzq : semPersonasEsperandoASubirCostaDer
+    semaforoParaSubir.wait()
+    semaforoDeSubiendo = miCosta == izq ? semPersonasSubiendoCostaIzq : semPersonasSubiendoCostaDer
+    subir()
+    semaforoDeSubiendo.signal()
+    
+    semDeViajar.wait()
+    bajar()
+    semDeBajar.signal()
+
+}
+
+
+
+transbordador() {
+    while(true){
+        for(int i = 0; i < N; i++)
+            semPersonasEsperandoASubirCostaIzq.signal()
+
+        for(int i = 0; i < N; i++)
+            semPersonasSubiendoCostaIzq.wait()
+        
+        viajarADerecha()
+
+        for(int i = 0; i < N; i++)
+            semDeViajar.signal()
+
+        for(int i = 0; i < N; i++)
+            semDeBajar.wait()
+
+        
+        for(int i = 0; i < N; i++)
+            semPersonasEsperandoASubirCostaDer.signal()
+
+        for(int i = 0; i < N; i++)
+            semPersonasSubiendoCostaDer.wait()
+        
+        viajarAIzquierda()
+
+        for(int i = 0; i < N; i++)
+            semDeViajar.signal()
+
+        for(int i = 0; i < N; i++)
+            semDeBajar.wait()
+    }
+
+}
+
+
+8. En un gimnasio hay cuatro aparatos, cada uno permite trabajar un grupo muscular distinto. Los
+aparatos se cargan con discos (todos del mismo peso). Cada cliente del gimnasio posee una rutina que
+le indica qu´e aparatos usar, en qu´e orden y cu´anto peso utilizar en cada caso. Notar que la rutina
+podr´ıa incluir usar repetidamente el mismo aparato. Como norma, el gimnasio exige que cada vez que
+un cliente termina de utilizar un aparato descargue todos los discos y los coloque en el lugar destinado
+a su almacenamiento (lo que incluye usos consecutivos del mismo aparato).
+a) Modele este escenario utilizando sem´aforos. Indique cu´ales son los recursos compartidos y objetos
+activos.
+b) Provea un c´odigo que simule el funcionamiento del gimnasio, garantizando exclusi´on mutua en el
+acceso a los recursos compartidos y que est´e libre de deadlocks y livelocks.
+c) Indique si su soluci´on est´a libre de inanici´on. En caso contrario explique c´omo podr´ıa resolverlo.
+
+
+sem semMaquinas[4];
+for(int i = 0; i < 4; i++)
+    semMaquinas = sem(1);
+
+accesoDiscos = sem(1)
+bool discosDisponibles[N];
+for(int i = 0; i < N; i++)
+    discosDisponibles[i] = true;
+
+
+public void Cliente(List<Ejercicio> rutina) {
+
+    foreach(Ejercicio ejercicio of Ejercicios){
+        semMaquinas[ejercicio.maquina].wait();
+
+        bool conseguiLosDiscos = false;
+        while(!conseguiLosDiscos){
+            accesoDiscos.wait();
+            if(ejercicio.CantDiscos <= sum(discosDisponibles)){
+                conseguiLosDiscos = true;
+                marcarComoOcupados(discosDisponibles, ejercicio.CantDiscos);
+            }
+            accesoDiscos.signal();
+        }
+
+        ejercitar();
+
+        accesoDiscos.wait();
+        marcarComoDisponibles(discosDisponibles, ejercicio.CantDiscos);
+        accesoDiscos.signal();
+
+        semMaquinas[ejercicio.maquina].signal();
+    }
+
+}
+
+public class Ejercicio {
+    public int Maquina;
+    public int CantDiscos;
+}
+
+9. Considere el siguiente juego. Existen dos tipos de participantes: los generadores y los consumidores de
+bolitas. Los generadores crean bolitas de a una a la vez y las colocan en una bolsa (suman un punto
+por cada bolita que logran colocar en la bolsa). Los consumidores toman pares de bolitas y suman un
+punto por cada par (pero no pueden tomar mas de un par por vez). No se conoce a priori la cantidad
+de participantes que est´an jugando, pero se debe garantizar en todo momento que la bolsa no contenga
+mas bolitas que la cantidad de generadores que se encuentran jugando.
+Proponer una soluci´on basada en sem´aforos que sea libre de deadlocks para todo escenario en donde
+participen 2 o mas generadores.
+
+
+Semáforo llenos = 0;
+Set<Bolita> bolsa;
+int inicio = 0;
+int fin = 0;
+int cantGeneradores = 0;
+mutexG = 1;
+mutexBolsa = 1
+
+public void Generador() {
+    wait(mutexG)
+    cantGeneradores = cantGeneradores + 1;
+    signal(mutexG)
+
+    while(true){
+        //producir bolita
+        bool pudeGuardarBolita = false;
+        while(!pudeGuardarBolita) {
+            wait(mutexBolsa)
+            if(bolsa.size() < cantGeneradores){
+                bolsa.add(bolita)
+                pudeGuardarBolita = true;
+            }
+            signal(mutexBolsa)
+        }
+        
+        signal(llenos)
+    }
+}
+
+public void Consumidor() {
+    while(true){
+        wait(llenos)
+        wait(llenos)
+        wait(mutexBolsa)
+        bolita1, bolita2 = bolsa.take(2)
+        signal(mutexBolsa)
+        //consumir dato
+    }
+}
+
+
+
+10. Se desea modelar una planta de refinamiento donde veh´ıculos aut´onomos trasladan productos en distintos estados de procesamiento. La planta consta de una plataforma donde se recibe la materia prima,
+otra donde se depositan los productos terminados, 8 m´aquinas procesadoras y 4 veh´ıculos.
+Cada m´aquina es capaz de descargar el contenido de un veh´ıculo, realizarle alg´un procesamiento y
+cargar el producto refinado en un veh´ıculo. No necesariamente se carga el producto procesado en el
+mismo veh´ıculo del cual se descarg´o la materia prima.
+Cada veh´ıculo posee una lista ordenada de cargas y descargas que debe efectuar en distintas m´aquinas o
+plataformas. Las acciones de carga, descarga, procesamiento y desplazamiento de los veh´ıculos consumen
+un tiempo no despreciable. Por lo que es importante garantizar que los veh´ıculos permanecen junto a las
+m´aquinas mientras se realizan las acciones de carga y descarga. Adem´as, las acciones de desplazamiento
+y procesamiento deben poder realizarse simult´aneamente.
+Modele este escenario utilizando sem´aforos. Asumiendo que:
+- Siempre es posible realizar una acci´on de carga en la plataforma de recepci´on y siempre es posible
+descargar en la plataforma de entrega.
+- Ninguna ruta requiere descargar en la plataforma de recepci´on ni cargar en la de entrega.
+- Un veh´ıculo esperando a ser cargado no obstruye a un veh´ıculo siendo descargado por la misma
+m´aquina.
+
+
+public void Vehiculo(List<Instruccion> instrucciones) {
+
+    foreach(Instruccion instruccion of instrucciones) {
+
+        MoveTo(instruccion.Estacion);
+        Semaphore semAccion = action == Action.Carga ? estacion.SemaforoCarga : estacion.SemaforoDescarga;
+        semAccion.wait()
+        if (action == Action.Carga){
+            estacion.Cargar()
+        } else {
+            estacion.Descargar()
+        }
+    }
+
+}
+
+public interface Instruccion {
+    Action Accion;
+    EstacionDeCargaDescarga Estacion;
+}
+
+public interface EstacionDeCargaDescarga {
+    public void Cargar();
+    public Semaphore SemaforoCarga;
+    public void Descargar();
+    public Semaphore SemaforoDescarga;
+}
+
+public class PlataformaDeRecepcion : EstacionDeCargaDescarga {
+    public PlataformaDeRecepcion() {
+        this.SemaforoCarga = sem(4)
+        this.SemaforoDescarga = sem(4)
+    }
+
+    public void Cargar() {
+        ...
+        this.SemaforoCarga.signal()
+    }
+    public void Descargar() {
+        throw new Error();
+    }
+}
+
+public class PlataformaDeEntrega: EstacionDeCargaDescarga {
+    public PlataformaDeEntrega() {
+        this.SemaforoCarga = sem(4)
+        this.SemaforoDescarga = sem(4)
+    }
+
+    public void Descargar() {
+        ...
+        this.SemaforoDescarga.signal()
+    }
+    public void Cargar() {
+        throw new Error();
+    }
+}
+
+public class MaquinaProcesadora {
+    public MaquinaProcesadora() {
+        this.SemaforoCarga = sem(1)
+        this.SemaforoDescarga = sem(1)
+        new Thread(this.Procesar)
+    }
+    private Semaphore materiaPrimaCargada = sem(0);
+    private Semaphore materiaPrimaProcesada = sem(0);
+    public void Cargar() {
+        ...
+        this.materiaPrimaCargada.signal();
+        this.SemaforoCarga.signal()
+    }
+    public void Descargar() {
+        this.materiaPrimaProcesada.wait();
+        ...
+        this.SemaforoDescarga.signal()
+    }
+
+    public void Procesar(){ 
+
+        while(true){
+            this.materiaPrimaCargada.wait();
+            ...
+            this.materiaPrimaProcesada.signal();
+        }
+    }
+
+}
