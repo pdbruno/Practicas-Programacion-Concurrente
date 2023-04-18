@@ -1,0 +1,258 @@
+Programaci´on Concurrente 1er Bimestre 2023
+Programaci´on Concurrente
+Pr´actica 3: Monitores
+1. Considere el siguiente monitor
+Monitor m{
+    condicion permiso
+    public void antesydespues {
+        //antes
+        permiso.signal()
+        //despues 
+    }
+    public void parte2{
+        permiso.wait()
+        //importante 
+    }
+}
+Este monitor fue dise˜nado para que la parte importante sea ejecutada por un thread, y las partes antes
+y despu´es sean ejecutadas por otro thread y adem´as se asegure que el ´unico ´orden de ejecuci´on posible
+sea:
+antes; importante; despues
+a) Mostrar que el c´odigo del monitor no es correcto si la disciplina utilizada es “signal y espera
+urgente”. Justifique su respuesta mostrando una traza.
+- thread 1 llama a antesydespues()
+- se ejecuta antes
+- se hace el signal (no despierta a nadie)
+- thread 1 se pone primero en la cola por el mutex de m
+- no hay nadie esperando en la cola, entra y ejecuta despues
+- thread 2 llama a parte2(), se queda colgado en el wait
+- quizas alguien llama de vuelta a antesydespues y se ejecuta importante
+
+b) ¿Qu´e sucede si se utiliza la disciplina“signal y contin´ua”?
+tampoco funciona ya que quien hace el signal, continua su ejecucion, por lo que se llamara a antes y luego a despues, sin pasar por
+importante, incluso si habia alguien esperando en el wait
+
+2. Un secuenciador ternario provee tres operaciones primero, segundo, tercero. Se desea implementar
+usando monitores al secuenciador ternario para coordinar a threads que pueden invocar a cualquiera
+de las operaciones. El secuenciador alternar´a c´ıclicamente la ejecuci´on de primero, luego de segundo,
+y finalmente tercero.
+
+Monitor SecuenciadorTernario {
+    condicion puedoEjecutarA;
+    condicion puedoEjecutarB;
+    condicion puedoEjecutarC;
+
+    private int ultimoEnEjecutar = 3;
+
+    public void primero() {
+        while(ultimoEnEjecutar != 3){
+            wait(puedoEjecutarA);
+        }
+        ///ejecuto primero...
+        ultimoEnEjecutar = 1;
+        signal(puedoEjecutarB);
+    }
+
+    public void segundo() {
+        while(ultimoEnEjecutar != 1){
+            wait(puedoEjecutarB);
+        }
+        ///ejecuto segundo...
+        ultimoEnEjecutar = 2;
+        signal(puedoEjecutarC);
+    }
+
+    public void tercero() {
+        while(ultimoEnEjecutar != 2){
+            wait(puedoEjecutarC);
+        }
+        ///ejecuto tercero...
+        ultimoEnEjecutar = 3;
+        signal(puedoEjecutarA);
+    }
+}
+
+3. Se desea implementar usando monitores una barrera para coordinar a N threads. Una barrera provee
+una ´unica operaci´on denominada esperar. La idea es que cada uno de los N threads invocar´an una vez
+a la operaci´on esperar y el efecto de invocarla es que el thread se bloquea y no puede continuar hasta
+tanto los restantes threads invoquen a la operaci´on esperar. Por ejemplo, si mibarrera es una barrera
+para coordinar 3 threads, el uso de mibarrera en los siguientes threads
+thread1: print ’a’; mibarrera.esperar(); print 1
+thread2: print ’b’; mibarrera.esperar(); print 2
+thread3: print ’c’; mibarrera.esperar(); print 3
+garantiza que todas las letras se mostrar´an antes de los n´umeros. Dar una implementaci´on para el
+monitor barrera.
+
+Monitor Barrera {
+    condition esperarBarrera;
+    private int cant = N;
+    public void esperar() {
+        if(--cant != 0){
+            wait(esperarBarrera)
+        } else {
+            signalAll(esperarBarrera)
+        }
+    }
+}
+
+4. Se desea implementar usando monitores un atrapador que permite coordinar varios threads. Un atrapador provee dos operaciones esperar y liberar (N). 
+La idea es que cada uno de los threads puede
+invocar a cualquiera de las operaciones: un thread que invoca a esperar se deber´a bloquear hasta tanto
+sea liberado por alg´un otro thread que invoca a la operaci´on liberar(N). El par´ametro N indica cuantos
+threads de los que est´an bloqueados deber´an liberarse.
+a) Dar una soluci´on en la que el thread que invoca liberar(N) nunca se bloquea. Adem´as s´olo se
+liberan threads si hay N o m´as threads esperando. En el caso en que haya menos de N threads,
+ninguno se liberar´a y deber´an continuar esperando.
+
+Monitor Atrapador {
+    private int esperando = 0;
+    condition esperar;
+    public void esperar(){
+        esperando++:
+        wait(esperar);
+        esperando--;
+    }
+    public void liberar(int N){
+        if(esperando >= N){
+            for(int i = 0; i < N; i++){
+                signal(esperar);
+            }
+        }
+    }
+}
+
+b) Modificar la soluci´on anterior para hacer que en el caso en que haya menos de N threads esperando,
+el proceso que invoca a liberar se bloquee hasta tanto se puedan liberar N threads (todos los threads
+que esperan se deben liberar juntos).
+
+Monitor Atrapador {
+    private bool yaHayLiberador = false;
+    condition terminoElLiberadorActual;
+    condition esperar;
+    condition hayUnLiberador;
+    condition hayOtroEsperador;
+
+    public void esperar(){
+        while(!yaHayLiberador){
+            wait(hayUnLiberador);
+        }
+        signal(hayOtroEsperador)
+        wait(esperar);
+    }
+    public void liberar(int N){
+        while(yaHayLiberador)
+            wait(terminoElLiberadorActual)
+        yaHayLiberador = true;
+        signalAll(hayUnLiberador);
+        for(int i = 0; i < N; i++)
+            wait(hayOtroEsperador);
+        for(int i = 0; i < N; i++)
+            signal(esperar);
+        signal(terminoElLiberadorActual);
+        yaHayLiberador = false;
+    }
+}
+
+
+5. Se desea resolver utilizando monitores el problema de la peluquer´ıa en la cual los clientes y los peluqueros
+son modelados como threads independientes que se sincronizan utilizando un monitor, denominado pelu,
+que tiene la siguientes operaciones:
+- cortarseElPelo
+- empezarCorte
+- terminarCorte
+Los threads peluqueros se comportan de la siguiente manera
+while(true){
+    pelu.empezarCorte()
+    //cortar
+    pelu.terminarCorte()
+}
+mientras que los clientes invocan a la operac´oin cortarseElPelo. El funcionamiento es el esperado
+para una peluquer´ıa. Los clientes llegan y esperan hasta ser atendidos. Solo se van de la peluquer´ıa
+cuando finalizan de cortarles el pelo. Se solicita:
+a) Dar una implementaci´on a este problema utilizando monitores (con la pol´ıtica signal y continua
+y utilizando diferentes variables de condici´on).
+
+b) C´omo se modifica su soluci´on si puede utilizar una ´unica variable de condici´on.
+
+Monitor Peluqueria {
+    condition corte;
+    public void cortarseElPelo() {
+        wait(corte)
+    }
+    public void empezarCorte() {
+        while(empty(corte)) {} //no funciona porque se queda con el lock de la peluquer´ıa para siempre, me encantaria que este no sea synchronized
+    }
+    public void terminarCorte() {
+        signal(corte) //como corte es una cola, va a despertar al que estaba esperando hace mas tiempo, es decir, el primero que llego
+    }
+}
+
+
+
+
+
+6. El comit´e organizador de una conferencia posee una sala para exposici´on de charlas de distintos temas.
+Las personas que desean asistir a una charla entran en la sala y esperan hasta que la charla comienza.
+Las charlas empiezan cuando el orador llega a la sala. Por respeto, los asistentes no se retiran hasta
+que la charla termina ni entran cuando la charla ya ha comenzado. La sala posee una capacidad de 50
+personas, sin contar al orador. De una soluci´on usando monitores que modele los siguientes escenarios:
+a) Se dispone de una sala para dar repetidas veces la misma charla. El orador descansa 5 minutos
+entre charla y charla. Si al momento de iniciar la charla el auditorio est´a vac´ıo el orador descansa
+otros 5 minutos esperando que lleguen oyentes. Cuando el auditorio se llena los asistentes deben
+esperar a que comience la siguiente charla luego del descanso del orador.
+b) Al igual que en el punto a) se dispone de una sala para dar tres charlas distintas, pero en este
+caso los oradores esperan a que haya al menos 40 personas en el auditorio.
+
+
+
+7. Se desea implementar utilizando monitores la siguiente sala de apuestas. La sala de apuestas propone
+un acertijo (b´asicamente una palabra que los apostadores deben descubrir). Los apostadores proponen
+una palabra y un monto. Si aciertan ganan 10 veces su apuesta y el acertijo concluye. Si un participante
+falla, no puede volver a apostar hasta tanto haya participado otro jugador. Al final, cada apostador
+debe mostrar por pantalla si gan´o o no y el monto. El monitor Juego que modela a la sala de apuestas
+debe proveer las siguientes operaciones.
+concluido: responde si el acertijo finaliz´o o no.
+apostar(palabra,apuesta) con la cual un jugador realiza su apuesta. Retorna verdadero si el jugador
+gan´o su apuesta y falso en caso contrario.
+Se solicita:
+a) Dar la implementaci´on de un jugador (asumiendo que se pasa la sala de juegos como par´amero al
+momento de la construcci´on). El jugador no puede asumir que el monitor implementa operaciones
+distintas de las mencionadas anteriormente.
+b) Dar la implementaci´on del monitor Juego que garantice que ning´un Jugador que se comporte
+seg´un el c´odigo definido anteriormente pueda apostar dos veces consecutivas y que finaliza cuando
+el acertijo concluye (a´un si el que adivina es otro jugador).
+
+
+8. En el bar X se fabrican dos tipos de pizzas: las chicas y las grandes. El maestro pizzero va colocando
+de a una las pizzas listas en una barra para que los clientes se sirvan y pasen luego por la caja.
+Lamentablemente todos los clientes tienen buen apetito y se comportan de la siguiente manera: prefieren
+siempre tomar un pizza grande, pero si no lo logran se conforman con dos peque˜nas. Los clientes son
+mal educados y no esperan en una cola (todos compiten por las pizzas). Dar una soluci´on en donde
+cada cliente es modelado como un thread. Como mecanismo de sincronizaci´on, utilizar monitores.
+
+
+
+
+9. Considerar el siguiente problema: Se desea modelar un bote utilizado por personas para cruzar un r´ıo.
+En todo momento el bote se encuentra en una de las dos costas del r´ıo (norte o sur). Las personas que
+llegan a una de las costas pueden abordar el bote si el mismo se encuentra en esa orilla y a´un tiene
+lugar disponible (el bote tiene una capacidad fija que se define al momento de construcci´on). El bote
+puede atravesar el r´ıo s´olo cuando tiene una autorizaci´on y cuando est´a completo. Cuando llega a la
+orilla, descarga a todas las personas y carga a las que est´an esperando. Cuando se llene y vuelva a tener
+autorizaci´on, volver´a a cruzar el r´ıo en direcci´on opuesta. Notar que la autorizaci´on puede llegar antes
+o despu´es de que est´e completo.
+a) Modelar el problema utilizando monitores
+b) Su modelo contempla el hecho de que las personas que esperan deber´ıan ingresar en el orden en
+que arribaron? C´omo modificar´ıa la soluci´on para considerar adem´as esta restricci´on?.
+
+
+
+10. Se desea implementar un monitor que permita administrar la asignaci´on de recursos. Esta clase mantiene
+una cola de recursos de un determinado tipo y permite que se tomen y liberen recursos a trav´es de
+dos operaciones tomar (que devuelve el primer elemento de la cola) y liberar (que agrega a la cola el
+elemento que se libera).
+a) Dar una implementaci´on en Java.
+b) Modificar la soluci´on anterior de modo tal que un proceso pueda tomar y liberar una cantidad
+arbitraria de recursos al mismo tiempo.
+c) Dar una soluci´on a este problema de modo tal que no se perjudique a aquellos que solicitan una
+gran cantidad de recursos.
