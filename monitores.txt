@@ -200,8 +200,42 @@ a) Se dispone de una sala para dar repetidas veces la misma charla. El orador de
 entre charla y charla. Si al momento de iniciar la charla el auditorio est´a vac´ıo el orador descansa
 otros 5 minutos esperando que lleguen oyentes. Cuando el auditorio se llena los asistentes deben
 esperar a que comience la siguiente charla luego del descanso del orador.
+
+Monitor SalaDeConferencia {
+    private int personasEnLaSala = 0;
+    condition esperandoAEntrar;
+
+    public boolean vacio() {
+        return personasEnLaSala == 0;
+    }
+    public void vacio() {
+        wait(esperandoAEntrar);
+    }
+}
+
+public void Asistente() {
+    sala.esperarParaEntrar(); //bloquea hasta que logra entrar a la sala
+    sala.escucharCharla(); //bloquea hasta que comienza la charla
+    sala.retirarse();
+}
+
+public void Orador() {
+    while(true){
+        while (sala.vacia())
+            sleep(5 * 60000);
+
+        sala.comenzarCharla();
+        //orar (pray)
+        sala.terminarCharla();
+
+        sleep(5 * 60000);
+    }
+
+}
+
 b) Al igual que en el punto a) se dispone de una sala para dar tres charlas distintas, pero en este
 caso los oradores esperan a que haya al menos 40 personas en el auditorio.
+
 
 
 
@@ -218,6 +252,43 @@ Se solicita:
 a) Dar la implementaci´on de un jugador (asumiendo que se pasa la sala de juegos como par´amero al
 momento de la construcci´on). El jugador no puede asumir que el monitor implementa operaciones
 distintas de las mencionadas anteriormente.
+
+
+Monitor Juego {
+    private boolean concluyo = false;
+    condition esperandoPenalidadPorFallo;
+
+    public boolean concluido() {
+        return concluyo;
+    }
+
+    public boolean apostar (string palabra, int apuesta) {
+        signalAll(esperandoPenalidadPorFallo);
+
+        if(palabra == 'skereeee'){
+            return (concluyo = true);
+        } else {
+            wait(esperandoPenalidadPorFallo);
+            return false;
+        }
+    }
+}
+
+public void jugador(sala) {
+    bool gane = false;
+    int ultimaApuesta;
+    while(!sala.concluido()) {
+        ultimaApuesta = this.apostar();
+        sala.apostar(this.generarPalabra(), ultimaApuesta);
+    }
+
+    if(gane) {
+        print("papu gane $" ultimaApuesta * 10)
+    } else {
+        print("no")
+    }
+}
+
 b) Dar la implementaci´on del monitor Juego que garantice que ning´un Jugador que se comporte
 seg´un el c´odigo definido anteriormente pueda apostar dos veces consecutivas y que finaliza cuando
 el acertijo concluye (a´un si el que adivina es otro jugador).
@@ -230,7 +301,62 @@ siempre tomar un pizza grande, pero si no lo logran se conforman con dos peque˜
 mal educados y no esperan en una cola (todos compiten por las pizzas). Dar una soluci´on en donde
 cada cliente es modelado como un thread. Como mecanismo de sincronizaci´on, utilizar monitores.
 
+Monitor BarXXX {
+    private cantChicas = 0;
+    private cantGrandes = 0;
 
+    public void agregarPizzaGrande() {
+        cantGrandes++;
+        signal(pizzaCocinada);
+    }
+
+    public void agregarPizzaChica() {
+        cantChicas++;
+        signal(pizzaCocinada);
+    }
+
+    condition pizzaCocinada;
+    public pizza esperarPizza() {
+        wait(pizzaCocinada);
+    }
+
+    public bool intentarConseguirGrande(){
+        if(cantGrandes > 0){
+            cantGrandes--;
+            return true;
+        }
+        return false;
+    }
+    public bool intentarConseguirDosChicas(){
+        if(cantChicas > 0){
+            cantChicas -= 2;
+            return true;
+        }
+        return false;
+    }
+}
+
+public void masterPizzer() {
+    while (true) {
+        Pizza pizza = cocinarUnaBuenaPizzarda();
+        if(pizza.tipo == TipoPizza.Grande) {
+            bar.agregarPizzaGrande();
+        } else {
+            bar.agregarPizzaChica();
+        }
+    }
+}
+
+public void cliente() {
+    bool satisfecho = false;
+
+    while(true) {
+        bar.esperarPizza();
+        if(bar.intentarConseguirGrande() || bar.intentarConseguirDosChicas()) {
+            break; //se puede modelar mas granularmente lo de conseguir una chica y despues otra pero me da paja
+        }
+    }
+}
 
 
 9. Considerar el siguiente problema: Se desea modelar un bote utilizado por personas para cruzar un r´ıo.
@@ -252,7 +378,53 @@ una cola de recursos de un determinado tipo y permite que se tomen y liberen rec
 dos operaciones tomar (que devuelve el primer elemento de la cola) y liberar (que agrega a la cola el
 elemento que se libera).
 a) Dar una implementaci´on en Java.
+
+Monitor ResourceManager<T extends Resource>{
+    private Queue<T> q = new Queue<T>(...);
+    condition freed;
+
+    public T tomar() {
+        while(!q.size()) {
+            wait(freed);
+        }
+        return q.dequeue();
+    }
+
+    public liberar(T resource) {
+        q.enqueue(resource);
+        signal(freed);
+    }
+}
+
 b) Modificar la soluci´on anterior de modo tal que un proceso pueda tomar y liberar una cantidad
 arbitraria de recursos al mismo tiempo.
+
+Monitor ResourceManager<T extends Resource>{
+    private Queue<T> q = new Queue<T>(...);
+    condition freed;
+
+    public T tomar(int n) {
+        int diff = q.size() - n;
+        while(diff < 0) {
+            for(int i = 0; i < diff; i++)
+                wait(freed);
+
+            diff = q.size() - n;
+        }
+
+        return q.dequeue(n); //qcy
+    }
+
+    public liberar(T[] resources) {
+        q.enqueue(resources);
+        signal(freed);
+        for(int i = 0; i < diff; i++)
+            signal(freed);
+    }
+}
+
 c) Dar una soluci´on a este problema de modo tal que no se perjudique a aquellos que solicitan una
 gran cantidad de recursos.
+
+//partir tomar() en iniciarTomar(); y terminarTomar();
+//de esa forma solo uno puede adquirir los recursos a medida que se van liberando
