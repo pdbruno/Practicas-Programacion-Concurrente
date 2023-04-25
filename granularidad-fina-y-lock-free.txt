@@ -1,0 +1,242 @@
+1. Analizar, para cada una de las implementaciones listas vistas en clase, que cambios deber´ıan introducirse
+si las claves hash no fuesen ´unicas.
+
+convegamos que si pueden haber colisiones entonces los objetos tienen que poder compararse por ==
+en ese caso ponele que cada nodo seria un bucket para todos los objetos con claves iguales, y estos
+se irian guardando en una lista enlazada (sin ningun orden en particular) referenciada por su respectivo nodo
+
+granularidad gruesa:
+no cambia nada
+
+hand-over-hand:
+hago hand-over-hand cuando voy recorriendo la lista interna de cada bucket
+
+lock optimista con validate:
+la logica de validate es la misma, busco en el bucket el objeto que quiero remover (o agregar, el cual es diferente
+pero no quiero entrar en detalles) y una vez que lo encuentro hago validate para asegurarme de que el y su predecesor
+no fueron modificados
+
+lazy con AtomicMarkableReference:
+es siempre analogo!!
+
+2. Considerar el siguiente monitor:
+class Figura{
+    int x = 0;
+    int y = 0;
+    int alto = 0;
+    int ancho = 0;
+    public synchronized void ajustarPosicion{
+        x = algunX();
+        y = algunY();
+    }
+    public synchronized void ajustarTamano{
+        alto = algunAlto();
+        ancho = algunAncho();
+    }
+    ...
+}
+Asumir que algunX y algunY no utilizan alto y ancho, y que algunAlto y algunAncho no utilizan
+informaci´on sobre la posici´on.
+Dar una soluci´on basada en locks para permitir que puedan ajustarse el tama˜no y la posici´on de manera
+concurrente.
+
+class Figura{
+    int x = 0;
+    int y = 0;
+    int alto = 0;
+    int ancho = 0;
+    private final Lock lockPosicion = new ReentrantLock();
+    private final Lock lockTamano = new ReentrantLock();
+
+    public void ajustarPosicion{
+        lockPosicion.lock();
+        try {
+            x = algunX();
+            y = algunY();
+        } 
+        finally {
+            lockPosicion.unlock();
+        }
+        
+    }
+    public void ajustarTamano{
+        lo mismo!
+        alto = algunAlto();
+        ancho = algunAncho();
+    }
+    ...
+}
+
+3. Considerar el siguiente monitor:
+public class Recursos {
+    Object[] recursos;
+    int capacidad;
+    public Recursos(int n){
+        capacidad = n;
+        recursos = new Object[capacidad];
+    }
+    public synchronized void assign(int pos, Object o){
+        if (pos < capacidad)
+        recursos[pos] = o;
+    }
+    public synchronized void swap(int i,int j){
+        if (i < capacidad && j < capacidad){
+            Object aux = recursos[i];
+            recursos[i] = recursos[j];
+            recursos[j] = aux;
+        }
+    }
+}
+a) Dar una soluci´on basada en locks que permita ejecutar concurrentemente operaciones assign y
+swap que operen sobre distintos recursos.
+public class Recursos {
+    Object[] recursos;
+    Lock[] locks;
+    int capacidad;
+    public Recursos(int n){
+        capacidad = n;
+        recursos = new Object[capacidad];
+        locks = new ReentrantLock[capacidad];
+        for(int i = 0; i < n; i++){
+            locks[i] = new ReentrantLock();
+        }
+    }
+    public void assign(int pos, Object o){
+        locks[pos].lock();
+        try {
+            if (pos < capacidad)
+            recursos[pos] = o;
+        }
+        finally {
+            locks[pos].unlock();
+        }
+    }
+    public void swap(int i,int j){
+        int min = min(i, j);
+        int max = max(i, j);
+        
+
+        locks[min].lock();
+        locks[max].lock();
+        try {
+            if (i < capacidad && j < capacidad){
+                Object aux = recursos[i];
+                recursos[i] = recursos[j];
+                recursos[j] = aux;
+            }
+        }
+        finally {
+            locks[min].unlock();
+            locks[max].unlock();
+        }
+        
+    }
+}
+
+b) Indicar si su soluci´on es libre de inanici´on.
+depende del fairness de los locks?
+4. Considerar la implementaci´on de listas que utiliza sincronizaci´on optimista.
+a) Mostrar un escenario en el que un thread intenta indefinidamente eliminar a un nodo sin conseguirlo.
+se busca pred y curr
+antes de lockearlos, otro thread agrega un nodo entre ellos
+cuando se ejecuta validate, este da false y se vuelve a empezar
+repetir indefinidamente (en vez de agregar un nodo entre ellos tambien se puede borrar pred)
+
+b) Mostrar que la implementaci´on no es correcta si se cambia el orden en que la operaci´on add
+adquiere los locks sobre pred y curr.
+no se me ocurre por que no seria correcta, lo peor que puede pasar es que el validate de false e intente de vuelta
+
+
+5. Considere el siguiente monitor
+public class Tabla {
+    HashMap<Integer,Object> tabla = new HashMap<Integer,Object>();
+    private final Lock lock = new ReentrantLock();
+    private void actualizarEntrada (int i){
+        lock.lock();
+        try{
+            Object v1 = tabla.get(i);
+            Object v2 = ComputacionalmenteCostoso(v1);
+            tabla.remove(i);
+            tabla.put(i,v2);
+        }
+        finally{
+            lock.unlock();
+        }
+    }
+...
+}
+a) Modificar la implementaci´on de la operaci´on actualizarEntrada utilizando la t´ecnica de sincronizaci´on optimista para evitar que la estructura 
+se encuentre bloqueada mientras se realiza el c´omputo ComputacionalmenteCostoso.
+
+public class Tabla {
+    HashMap<Integer,Object> tabla = new HashMap<Integer,Object>();
+    private final Lock lock = new ReentrantLock();
+    private void actualizarEntrada (int i){
+        while(true){
+            Object v1 = tabla.get(i);
+            Object v2 = ComputacionalmenteCostoso(v1);
+            lock.lock();
+            try{
+                if(v1 == tabla.get(i)){
+                    tabla.remove(i);
+                    tabla.put(i,v2);
+                }
+            }
+            finally{
+                lock.unlock();
+            }
+        }
+    }
+...
+}
+
+b) Indicar si la soluci´on propuesta es libre de inanici´on. Justificar.
+si los locks son fair, cualquier thread que solicite acceso al lock lo obtendra ya que la zona critica se computa en un tiempo finito
+
+6. Considere la siguiente implementaci´on de una cola no acotada.
+class Stack {
+    synchronized boolean isEmpty() { ... }
+    synchronized Object pop() { ... }
+    synchronized void push(Object o) { ... }
+    ...
+}
+class Queue {
+    Stack in = new Stack();
+    Stack out = new Stack();
+    void enq(Object o){ in.push(o); }
+    Object deq() {
+        if(out.isEmpty()) {
+            while(!in.isEmpty()) {
+                out.push(in.pop());
+            }
+        }
+        return out.pop();
+    }
+}
+
+a) Mostrar que la implementaci´on no es correcta si las operaciones enq and deq pueden ser invocadas
+concurrentemente.
+b) Dar una soluci´on correcta que utilice dos pilas y que permita la ejecuci´on concurrente de enq and
+deq (al menos cuando la pila out no est´a vac´ıa).
+
+
+7. Considerar la implementaci´on de una cola acotada que utiliza dos locks y la variable at´omica size.
+Notar que el uso de size requiere la sincronizaci´on de los m´etodos enq y deq, que puede transformase
+en un cuello de botella que secuencializa a las operaciones. Modificar la soluci´on considerando dos
+contadores, uno de incrementos y uno de decrementos de modo tal de minimizar la sincronizaci´on a los
+casos en los que es indispensable contar con el tama˜no efectivo de la cola.
+
+
+8. Implementar una pila acotada.
+
+
+9. Considere la implementaci´on de la pila lock-free.
+a) Mostrar que el problema ABA puede darse si no se cuenta con un garbage collector.
+b) Modificar la soluci´on para evitar el problema ABA cuando no se cuenta con un garbage collector.
+
+
+10. Implementar un contador que provea las operaciones inc, get and reset de manera lock-free. Indicar sin
+las operaciones son wait-free.
+
+
+11. Dar una implementaci´on libre de locks para las operaciones de la clase Figura en el Ejercicio 2.]
