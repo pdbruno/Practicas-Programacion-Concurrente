@@ -216,9 +216,39 @@ class Queue {
 
 a) Mostrar que la implementaci´on no es correcta si las operaciones enq and deq pueden ser invocadas
 concurrentemente.
+el deq puede estar en el medio del while y que se ejecute un enq, lo cual hace que en out quede un elemento 
+en el medio que en realidad deberia estar al final de la cola
+
 b) Dar una soluci´on correcta que utilice dos pilas y que permita la ejecuci´on concurrente de enq and
 deq (al menos cuando la pila out no est´a vac´ıa).
 
+class Queue {
+    Stack in = new Stack();
+    Stack out = new Stack();
+    Lock inLock = new ReentrantLock();
+    void enq(Object o){
+        inLock.lock();
+        try {
+            in.push(o);
+        } finally {
+            inLock.unlock()
+        }
+    }
+    Object deq() {
+        if(out.isEmpty()) {
+            inLock.lock();
+            try {
+                while(!in.isEmpty()) {
+                    out.push(in.pop());
+                }
+            }
+            } finally {
+                inLock.unlock()
+            }
+        }
+        return out.pop();
+    }
+}
 
 7. Considerar la implementaci´on de una cola acotada que utiliza dos locks y la variable at´omica size.
 Notar que el uso de size requiere la sincronizaci´on de los m´etodos enq y deq, que puede transformase
@@ -233,10 +263,16 @@ casos en los que es indispensable contar con el tama˜no efectivo de la cola.
 9. Considere la implementaci´on de la pila lock-free.
 a) Mostrar que el problema ABA puede darse si no se cuenta con un garbage collector.
 b) Modificar la soluci´on para evitar el problema ABA cuando no se cuenta con un garbage collector.
-
+AtomicStampedReference
+tail.compareAndSet(last, next, lastStamp[0], lastStamp[0]+1)
 
 10. Implementar un contador que provea las operaciones inc, get and reset de manera lock-free. Indicar sin
 las operaciones son wait-free.
 
+se me ocurre hacerlo con un testAndSet, como vimos en ssoo
+wait-free no es ni de onda, es un spinlock y te quedas esperando en un while
 
-11. Dar una implementaci´on libre de locks para las operaciones de la clase Figura en el Ejercicio 2.]
+
+11. Dar una implementaci´on libre de locks para las operaciones de la clase Figura en el Ejercicio 2.
+
+puedo hacer que la dimension y la posicion sean referencias a tuplas y hacer compare and set? no, ni idea
